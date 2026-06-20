@@ -1,0 +1,8 @@
+{
+  "name": "Intelligent Medical Diagnostic System",
+  "description": "AI-powered clinical diagnostic system for X-Ray, MRI, and CT scan analysis and consulting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
