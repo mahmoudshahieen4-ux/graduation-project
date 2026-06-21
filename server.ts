@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
-import { User, UserRole, MedicalScan, ScanType, ScanStatus, Severity, DashboardStats, ChatMessage } from "./src/types";
+import { User, UserRole, MedicalScan, ScanType, ScanStatus, Severity, DashboardStats, ChatMessage, VoiceCallRecord } from "./src/types";
 
 dotenv.config();
 
@@ -33,6 +33,8 @@ if (apiKey && apiKey !== "MY_GEMINI_API_KEY") {
 // ==========================================
 // IN-MEMORY CLINICAL DATA STORE (Preloaded)
 // ==========================================
+
+const voiceCalls: VoiceCallRecord[] = [];
 
 const users: User[] = [
   {
@@ -690,15 +692,111 @@ function generateSimulatedChatResponse(query: string, activeScanResult: any): st
   }
 
   return `مرحباً بك يا صديقي الفاضل وصحتك تهمنا تماماً.
-
-سؤالك رائع، وأريد إخبارك أن الوقاية والفحص المبكر للأشعة هما الأساس الأول للشفاء السريع بإذن الله.
-يمكنك الاستفادة الكاملة من نظامنا بـ:
-1. تسجيل الدخول وتسجيل حساب جديد (طبيب أو مريض).
-2. الذهاب إلى "رفع الأشعة" ورفع ملف أشعة الصدر، الرأس، أو الضلوع.
-3. التفاعل مع التقرير الطبي المفصل المولد في التو واللحظة بنقرات بسيطة.
-
-أنا الدكتور شاهين مستعد دائماً لإجابتك، يرجى إطلاعي بدقة أكبر على الأعراض أو الاستفسار الذي يدور بذهنك وسأجيبك بأكثر الإيضاحات شمولاً وعناية!`;
+  
+  سؤالك رائع، وأريد إخبارك أن الوقاية والفحص المبكر للأشعة هما الأساس الأول للشفاء السريع بإذن الله.
+  يمكنك الاستفادة الكاملة من نظامنا بـ:
+  1. تسجيل الدخول وتسجيل حساب جديد (طبيب أو مريض).
+  2. الذهاب إلى "رفع الأشعة" ورفع ملف أشعة الصدر، الرأس، أو الضلوع.
+  3. التفاعل مع التقرير الطبي المفصل المولد في التو واللحظة بنقرات بسيطة.
+  
+  أنا الدكتور شاهين مستعد دائماً لإجابتك، يرجى إطلاعي بدقة أكبر على الأعراض أو الاستفسار الذي يدور بذهنك وسأجيبك بأكثر الإيضاحات شمولاً وعناية!`;
 }
+
+// ==========================================
+// Voice Consultation Endpoints
+// ==========================================
+
+app.post("/api/calls", async (req, res) => {
+  const { patientId, doctorId, audioData } = req.body;
+
+  if (!patientId || !doctorId || !audioData) {
+    return res.status(400).json({ error: "بيانات المكالمة غير مكتملة." });
+  }
+
+  const newCallId = `call-${Date.now()}`;
+  
+  let transcription = "لم يتمكن الذكاء الاصطناعي من تفريغ المحادثة.";
+  let summary = "ملخص المحادثة غير متاح حالياً.";
+
+  try {
+    if (ai) {
+      let base64Data = audioData;
+      let mimeType = "audio/webm";
+
+      if (audioData.startsWith("data:")) {
+        const matches = audioData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          mimeType = matches[1];
+          base64Data = matches[2];
+        }
+      }
+
+      const promptText = `أنت مساعد طبي ذكي. هذه محادثة صوتية مسجلة بين مريض وطبيب.
+قم بالاستماع إلى المقطع الصوتي، ثم اكتب:
+1. التفريغ النصي الكامل للمحادثة (Transcription) باللغة العربية.
+2. ملخص طبي قصير (Summary) يوضح حالة المريض وأهم الأعراض المذكورة والتشخيص المبدئي إن وجد.
+
+يجب أن تعيد النتيجة بنظام JSON بهذا الشكل الصارم:
+{
+  "transcription": "التفريغ النصي...",
+  "summary": "الملخص الطبي..."
+}`;
+
+      const imagePart = {
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Data,
+        },
+      };
+
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: { parts: [imagePart, { text: promptText }] },
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const textResponse = response.text;
+      if (textResponse) {
+        const parsed = JSON.parse(textResponse.trim());
+        transcription = parsed.transcription || transcription;
+        summary = parsed.summary || summary;
+      }
+    } else {
+      // Simulation mode
+      transcription = "محاكاة: المريض يشكو من ألم متكرر في الصدر وضيق في التنفس. الطبيب ينصح بعمل أشعة سينية وأخذ قسط من الراحة.";
+      summary = "محاكاة: اشتباه بالتهاب تنفسي أو إرهاق عضلي. يوصى بإجراء X-Ray للمتابعة.";
+    }
+  } catch (err) {
+    console.error("Audio processing failed:", err);
+    transcription = "حدث خطأ أثناء تفريغ المحادثة عبر الذكاء الاصطناعي.";
+    summary = "تعذر توليد الملخص.";
+  }
+
+  const callRecord: VoiceCallRecord = {
+    id: newCallId,
+    patientId,
+    doctorId,
+    date: new Date().toISOString(),
+    audioUrl: audioData,
+    transcription,
+    summary
+  };
+
+  voiceCalls.unshift(callRecord);
+  res.status(201).json(callRecord);
+});
+
+app.get("/api/calls/:patientId", (req, res) => {
+  const { patientId } = req.params;
+  const patientCalls = voiceCalls.filter(c => c.patientId === patientId);
+  res.json(patientCalls);
+});
+
+app.get("/api/calls", (req, res) => {
+  res.json(voiceCalls);
+});
 
 // ==========================================
 // Serve Application Assets (Express + Vite)

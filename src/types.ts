@@ -76,3 +76,13 @@ export interface DashboardStats {
   scansByType: { name: string; value: number }[];
   severityDistribution: { name: string; value: number }[];
 }
+
+export interface VoiceCallRecord {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  date: string;
+  audioUrl?: string; // Optional: in case we want to store base64 or URL
+  transcription: string;
+  summary: string;
+}

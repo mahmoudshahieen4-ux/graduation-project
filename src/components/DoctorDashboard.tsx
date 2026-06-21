@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { User, MedicalScan, ScanType, ScanStatus, Severity, DashboardStats } from "../types";
+import { User, MedicalScan, ScanType, ScanStatus, Severity, DashboardStats, VoiceCallRecord } from "../types";
 import { 
   Users, Layers, AlertCircle, FileText, Activity, Save, 
-  Trash2, Edit, X, Brain, CheckCircle, TrendingUp, Sparkles 
+  Trash2, Edit, X, Brain, CheckCircle, TrendingUp, Sparkles, Mic, PhoneIncoming
 } from "lucide-react";
+import VoiceCallModal from "./VoiceCallModal";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   Legend, ResponsiveContainer, PieChart, Pie, Cell 
@@ -18,6 +19,12 @@ export default function DoctorDashboard({ user }: DoctorDashboardProps) {
   const [scans, setScans] = useState<MedicalScan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Voice Call states
+  const [patients, setPatients] = useState<User[]>([]);
+  const [calls, setCalls] = useState<VoiceCallRecord[]>([]);
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [activeCallPatientId, setActiveCallPatientId] = useState<string>("");
 
   // Edit Diagnosis modal states
   const [editingScan, setEditingScan] = useState<MedicalScan | null>(null);
@@ -35,18 +42,24 @@ export default function DoctorDashboard({ user }: DoctorDashboardProps) {
   const fetchDashboardData = async () => {
     try {
       // Parallel fetch using standard native APIs
-      const [statsRes, scansRes] = await Promise.all([
+      const [statsRes, scansRes, patientsRes, callsRes] = await Promise.all([
         fetch("/api/dashboard/stats"),
-        fetch("/api/scans")
+        fetch("/api/scans"),
+        fetch("/api/patients"),
+        fetch("/api/calls")
       ]);
 
       if (!statsRes.ok || !scansRes.ok) throw new Error("فشل الخادم في توفير البيانات السريرية المطلوبة.");
 
       const statsData = await statsRes.json();
       const scansData = await scansRes.json();
+      const patientsData = await patientsRes.json();
+      const callsData = await callsRes.json();
 
       setStats(statsData);
       setScans(scansData);
+      setPatients(patientsData);
+      setCalls(callsData);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -363,6 +376,61 @@ export default function DoctorDashboard({ user }: DoctorDashboardProps) {
         )}
       </div>
 
+      {/* VOICE CONSULTATIONS PANEL */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
+            <Mic className="w-5 h-5 text-teal-500" />
+            المحادثات الصوتية التشخيصية (Speech-to-Text AI)
+          </h3>
+          <button
+            onClick={() => {
+              if (patients.length > 0) {
+                setActiveCallPatientId(patients[0].id);
+                setIsCallModalOpen(true);
+              } else {
+                alert("لا يوجد مرضى متاحين حالياً لبدء محادثة.");
+              }
+            }}
+            className="flex items-center gap-1.5 bg-teal-50 text-teal-600 hover:bg-teal-100 px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+          >
+            <PhoneIncoming className="w-4 h-4" />
+            <span>بدء محادثة مع مريض</span>
+          </button>
+        </div>
+
+        {calls.length === 0 ? (
+          <p className="text-slate-400 font-medium text-xs text-center py-8">لا توجد محادثات صوتية سابقة مسجلة.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {calls.map((call) => {
+              const patient = patients.find(p => p.id === call.patientId);
+              return (
+                <div key={call.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">المريض: {patient?.name || call.patientId}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{new Date(call.date).toLocaleString("ar-EG")}</span>
+                    </div>
+                    <span className="px-2 py-1 bg-teal-100 text-teal-700 rounded-lg text-[9px] font-bold">محادثة بالذكاء الاصطناعي</span>
+                  </div>
+                  <div>
+                    <h5 className="text-[11px] font-extrabold text-slate-700 mb-1">ملخص الذكاء الاصطناعي:</h5>
+                    <p className="text-[11px] text-slate-600 leading-relaxed bg-white p-2 rounded-lg border border-slate-100">{call.summary}</p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100">
+                    <details className="text-[10px] text-slate-500 cursor-pointer">
+                      <summary className="font-bold outline-none">عرض التفريغ النصي الكامل للمحادثة</summary>
+                      <p className="mt-2 text-slate-600 leading-relaxed bg-white p-3 rounded-lg border border-slate-200">{call.transcription}</p>
+                    </details>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* EDIT MODAL DIALOG DRAW-OUT BACKDROP */}
       {editingScan && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 text-right font-sans overflow-y-auto" dir="rtl">
@@ -520,6 +588,17 @@ export default function DoctorDashboard({ user }: DoctorDashboardProps) {
           </div>
         </div>
       )}
+
+      {/* VOICE CALL MODAL */}
+      <VoiceCallModal 
+        isOpen={isCallModalOpen} 
+        onClose={() => setIsCallModalOpen(false)} 
+        patientId={activeCallPatientId}
+        doctorId={user.id}
+        onCallComplete={(newCall) => {
+          setCalls(prev => [newCall, ...prev]);
+        }}
+      />
 
     </div>
   );
