@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
-import { createServer as createViteServer } from "vite";
 import { User, UserRole, MedicalScan, ScanType, ScanStatus, Severity, DashboardStats, ChatMessage } from "./src/types";
 
 dotenv.config();
@@ -707,6 +706,7 @@ function generateSimulatedChatResponse(query: string, activeScanResult: any): st
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa"
@@ -715,17 +715,24 @@ async function startServer() {
     app.use(vite.middlewares);
     console.log("Mounted Vite middleware dynamically for development.");
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    // Determine the correct dist path for Vercel vs Local
+    const distPath = path.join(__dirname, "dist").replace(/dist[\\\/]dist$/, "dist"); 
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
-    console.log("Serving static production assets from /dist.");
+    console.log(`Serving static production assets from ${distPath}`);
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Intelligent Medical Diagnostic App running on http://localhost:${PORT}`);
-  });
+  // Only start listening on a port if not in a serverless environment (Vercel)
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Intelligent Medical Diagnostic App running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+// Export the Express app for Vercel's serverless runtime
+export default app;
