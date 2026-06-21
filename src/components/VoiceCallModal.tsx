@@ -117,7 +117,7 @@ export default function VoiceCallModal({ isOpen, onClose, patientId, doctorId, o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" dir="rtl">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-200">
-        
+
         {/* Header */}
         <div className="bg-gradient-to-l from-teal-500 to-sky-500 p-5 text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4"></div>
@@ -128,7 +128,7 @@ export default function VoiceCallModal({ isOpen, onClose, patientId, doctorId, o
 
         {/* Body */}
         <div className="p-8 text-center space-y-6">
-          
+
           {isProcessing ? (
             <div className="flex flex-col items-center justify-center space-y-4 py-6">
               <div className="relative">
@@ -143,10 +143,10 @@ export default function VoiceCallModal({ isOpen, onClose, patientId, doctorId, o
               {/* Visualizer Mock */}
               <div className="flex justify-center items-end gap-1 h-16 my-4">
                 {[...Array(12)].map((_, i) => (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className={`w-2 rounded-t-sm ${isRecording ? 'bg-teal-400 animate-pulse' : 'bg-slate-200'}`}
-                    style={{ 
+                    style={{
                       height: isRecording ? `${Math.max(10, Math.random() * 100)}%` : '10%',
                       animationDelay: `${i * 0.1}s`,
                       animationDuration: '0.5s'
@@ -170,7 +170,7 @@ export default function VoiceCallModal({ isOpen, onClose, patientId, doctorId, o
               ) : (
                 <button
                   onClick={startRecording}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-teal-500 to-sky-500 hover:from-teal-600 hover:to-sky-600 text-white font-bold rounded-xl shadow-md transition-transform active:scale-95"
+                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-linear-to-r from-teal-500 to-sky-500 hover:from-teal-600 hover:to-sky-600 text-white font-bold rounded-xl shadow-md transition-transform active:scale-95"
                 >
                   <Mic className="w-5 h-5" />
                   بدء تسجيل المحادثة

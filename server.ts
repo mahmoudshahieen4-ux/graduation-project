@@ -221,7 +221,7 @@ app.post("/api/auth/login", (req, res) => {
 
   // Linear match against users (password matching is mock-based on standard inputs)
   const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  
+
   if (!user) {
     return res.status(401).json({ error: "اسم المستخدم غير موجود أو كلمة المرور خاطئة." });
   }
@@ -251,7 +251,7 @@ app.post("/api/auth/register", (req, res) => {
     email: email.toLowerCase(),
     name,
     role: role as UserRole,
-    avatarUrl: gender === "أنثى" 
+    avatarUrl: gender === "أنثى"
       ? "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=120&auto=format&fit=crop"
       : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=120&auto=format&fit=crop",
     age: age ? Number(age) : undefined,
@@ -347,7 +347,7 @@ app.put("/api/scans/:id/diagnosis", (req, res) => {
   const { id } = req.params;
   const { diagnosis, confidence, normalConfidence, reportArabic, findings, recommendedSpecialty, severity, recommendations } = req.body;
   const scan = scans.find(s => s.id === id);
-  
+
   if (!scan) {
     return res.status(404).json({ error: "الفحص غير موجود" });
   }
@@ -381,10 +381,10 @@ app.post("/api/diagnose", async (req, res) => {
 
   try {
     const scanId = `scan-${Date.now()}`;
-    
+
     // Default simulated initial return in case Gemini fails or is keyless
     const simulatedDiagnosis = getMockDiagnosis(scanType as ScanType);
-    
+
     let result = simulatedDiagnosis;
 
     // Check if Gemini AI SDK initialized successfully
@@ -628,7 +628,7 @@ app.post("/api/chat", async (req, res) => {
 // Beautiful simulated clinical replies for safety back-up
 function generateSimulatedChatResponse(query: string, activeScanResult: any): string {
   const qLower = query.toLowerCase();
-  
+
   if (activeScanResult) {
     const diagnosisName = activeScanResult.diagnosis;
     const specialty = activeScanResult.recommendedSpecialty;
@@ -714,7 +714,7 @@ app.post("/api/calls", async (req, res) => {
   }
 
   const newCallId = `call-${Date.now()}`;
-  
+
   let transcription = "لم يتمكن الذكاء الاصطناعي من تفريغ المحادثة.";
   let summary = "ملخص المحادثة غير متاح حالياً.";
 
@@ -724,10 +724,16 @@ app.post("/api/calls", async (req, res) => {
       let mimeType = "audio/webm";
 
       if (audioData.startsWith("data:")) {
-        const matches = audioData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (matches && matches.length === 3) {
-          mimeType = matches[1];
-          base64Data = matches[2];
+        // Safer parsing for data URIs that might include codecs (e.g. data:audio/webm;codecs=opus;base64,...)
+        const commaIndex = audioData.indexOf(",");
+        if (commaIndex !== -1) {
+          const prefix = audioData.substring(0, commaIndex);
+          base64Data = audioData.substring(commaIndex + 1);
+
+          const mimeMatch = prefix.match(/^data:([^;]+)/);
+          if (mimeMatch) {
+            mimeType = mimeMatch[1];
+          }
         }
       }
 
@@ -768,9 +774,9 @@ app.post("/api/calls", async (req, res) => {
       transcription = "محاكاة: المريض يشكو من ألم متكرر في الصدر وضيق في التنفس. الطبيب ينصح بعمل أشعة سينية وأخذ قسط من الراحة.";
       summary = "محاكاة: اشتباه بالتهاب تنفسي أو إرهاق عضلي. يوصى بإجراء X-Ray للمتابعة.";
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("Audio processing failed:", err);
-    transcription = "حدث خطأ أثناء تفريغ المحادثة عبر الذكاء الاصطناعي.";
+    transcription = "حدث خطأ: " + err.message;
     summary = "تعذر توليد الملخص.";
   }
 
@@ -814,7 +820,7 @@ async function startServer() {
     console.log("Mounted Vite middleware dynamically for development.");
   } else {
     // Determine the correct dist path for Vercel vs Local
-    const distPath = path.join(__dirname, "dist").replace(/dist[\\\/]dist$/, "dist"); 
+    const distPath = path.join(__dirname, "dist").replace(/dist[\\\/]dist$/, "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
